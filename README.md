@@ -5,8 +5,9 @@ possibility of output G-Code files.
 
 ### Requirements
 
-- `numpy`
 - `matplotlib`
+- `numpy`
+- `scipy`
 
 ### Install
 
@@ -25,7 +26,8 @@ micromachining of
 
 ### TO DO
 
-- [ ] Add 3D Bezier curves
+- [x] Add 3D Bezier curves
+- [ ] Fix dependencies and update helpers functions
 - [ ] Fix 2D plot
 - [ ] Add 3D plot options
 - [ ] Add Generation of G-Code files
