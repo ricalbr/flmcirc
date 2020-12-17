@@ -7,9 +7,9 @@ from typing import List, Optional
 from port import Port
 
 # TODO:
-# - add 3d plot with matplotlib
-# - 2d plot export with jpg and png
-# - add markers
+# - add markers to figures
+# - add multiple guide to the same layer (aka forming a more complerx circuit.)
+# - (minor) padding that depend on axis proportions
 
 
 class Cell:
@@ -109,17 +109,19 @@ class Cell:
             elem.append(array)
         return elem
 
-    def save_image(self, filename: str, resolution=1., ylim=(None, None),
-                   xlim=(None, None), scale=1., tight_flag=False):
+    def save_image(self, filename: str, resolution=1., ylim=(None, None), xlim=(None, None), aspect_ratio='auto', padding_frame=1, scale=1., tight_flag=False):
         """
            Save cell object as an image.
 
            You can either use a rasterized file format such as png but also formats such as SVG or PDF.
 
            :param filename: Name of the image file.
-           :param resolution: Rasterization resolution in GDSII units.
+           :param resolution: Rasterization resolution.
            :param ylim: Tuple of (min_x, max_x) to export.
            :param xlim: Tuple of (min_y, max_y) to export.
+           :param aspect_ratio: Aspect ratio of the plot. Either ('auto',
+                                'equal', num. Default is 'auto')
+           :param padding_frame: padding of frame around the circuit.
            :param scale: Defines the scale of the image.
            :param tight_flag: Boolean flag for tight axes option of the plot.
            """
@@ -138,21 +140,25 @@ class Cell:
             ax.plot(mark, '-k')
 
         # plot frame
+        from matplotlib.patches import Rectangle
+
+        bounds = self.get_bounds()
+        origin = (bounds[0][0] - padding_frame, bounds[1][0] - padding_frame)
+        width = bounds[0][1] - bounds[0][0] + 2*padding_frame
+        height = bounds[1][1] - bounds[1][0] + 2*padding_frame
+        ax.add_patch(Rectangle(origin, width, height, linewidth=1,
+                               edgecolor='k', facecolor='none'))
 
         # Autoscale, then change the axis limits and read back what is actually displayed
         ax.autoscale(True, tight=tight_flag)
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
-        actual_ylim, actual_xlim = ax.get_ylim(), ax.get_xlim()
-        fig.set_size_inches(np.asarray(
-            (actual_xlim[1] - actual_xlim[0], actual_ylim[1] - actual_ylim[0])) * scale)
 
-        ax.set_aspect(1)
+        ax.set_aspect(aspect_ratio)
         ax.axis('off')
 
-        fig.set_dpi(1 / resolution)
         plt.savefig(filename, transparent=True,
-                    bbox_inches='tight', dpi=1 / resolution)
+                    bbox_inches='tight')
         plt.close()
 
     def show(self, padding=5):
@@ -176,16 +182,80 @@ class Cell:
         ax.set_ylim(bounds[1][0] - padding, bounds[1][1] + padding)
         plt.show()
 
+    def plot3d(self, z_thickness=1.1, padding=5):
+        """
+        Shows the current cell
 
-if __name__ == '__main__':
+        :param layers: List of the layers to be shown, passing None shows all layers
+        :param z_thickness: Thickness of the glass chip
+        :param padding: padding around the structure
+        """
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
+        fig = plt.figure()
+        if self.name is not None:
+            fig.suptitle(self.name)
+
+        ax = fig.add_subplot(121, projection='3d')
+
+        for guide in self.get_element_coordinates(self.guides_dict):
+            ax.plot(guide[:, 0], guide[:, 1], guide[:, 2], '-b')
+        ax.set_xlabel('x [mm]')
+        ax.set_ylabel('y [mm]')
+        ax.set_zlabel('z [mm]')
+
+        # xy plane
+        ax = fig.add_subplot(322)
+        for guide in self.get_element_coordinates(self.guides_dict):
+            ax.plot(guide[:, 0], guide[:, 1], '-b')
+        for mark in self.get_element_coordinates(self.marker_dict):
+            ax.plot(mark, '-k')
+        ax.set_xlabel('x [mm]')
+        ax.set_ylabel('y [mm]')
+
+        # xz plane
+        ax = fig.add_subplot(324)
+        for guide in self.get_element_coordinates(self.guides_dict):
+            ax.plot(guide[:, 0], guide[:, 2], '-b')
+        ax.set_xlabel('x [mm]')
+        ax.set_ylabel('z [mm]')
+
+        # yz plane
+        ax = fig.add_subplot(326)
+        for guide in self.get_element_coordinates(self.guides_dict):
+            ax.plot(guide[:, 1], guide[:, 2], '-b')
+        ax.set_xlabel('y [mm]')
+        ax.set_ylabel('z [mm]')
+
+        plt.show()
+
+
+def _example():
     from port import Port
     from waveguide import Waveguide
 
-    device_cell = Cell('my_cell')
-    start_port = Port(origin=(0, 0, 0), angle=0)
-    waveguide = Waveguide.make_at_port(start_port)
+    coupling_distance = 6.6e-3
+    distance_guide = 0.127
+    coupler_height = (distance_guide - coupling_distance) / 2
+
+    device_cell = Cell('simple_coupler')
+    start_port_1 = Port(origin=(0, 0, 0), angle=0)
+    start_port_2 = Port(origin=(0, distance_guide, 0), angle=0)
+
+    waveguide = Waveguide.make_at_port(start_port_1)
     for i_bend in range(2):
-        waveguide.add_bend(angle=np.pi, radius=60 + i_bend * 40)
+        waveguide.add_s_bend(coupler_height, 60, (2*i_bend)-1)
     device_cell.add_guide(waveguide, 1)
-    print(device_cell.size)
-    device_cell.show()
+
+    waveguide = Waveguide.make_at_port(start_port_2)
+    for i_bend in range(2):
+        waveguide.add_s_bend(coupler_height, 60, (-2*i_bend)+1)
+    device_cell.add_guide(waveguide, 2)
+    # device_cell.show(padding=0.5)
+    device_cell.plot3d()
+    # device_cell.save_image(filename='simple_coupler.png', padding_frame=0.5)
+
+
+if __name__ == "__main__":
+    _example()
