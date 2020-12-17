@@ -92,7 +92,8 @@ class Waveguide:
         n_points = n_points if n_points else 128
 
         self._current_port.set_port_properties(**kwargs)
-        sample_points = max(int(abs(angle) / (np.pi / 2) * n_points), 2)
+        sample_points = max(
+            int(radius * abs(angle) / (np.pi / 2) * n_points), 2)
 
         angle = normalize_phase(angle, zero_to_two_pi=True) - \
             (0 if angle > 0 else 2 * np.pi)
@@ -134,8 +135,7 @@ class Waveguide:
 
         return self
 
-    def add_parameterized_path(self, path, sample_distance=0.50, sample_points=100, path_derivative=None,
-                               path_function_supports_numpy=False):
+    def add_parameterized_path(self, path, sample_distance=5e-4, sample_points=100, path_derivative=None, path_function_supports_numpy=False):
         """
         Generate a parameterized path.
 
