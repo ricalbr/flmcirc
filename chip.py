@@ -39,26 +39,20 @@ class Cell:
         if not bool(self.guides_dict) and not bool(self.marker_dict):
             return None
         else:
-            xmax = max(
-                max((max(self.guides_dict[key][:, 0], default=-np.inf)
-                     for key in self.guides_dict)),
-                max((max(self.marker_dict[key][:, 0], default=- np.inf)
-                     for key in self.marker_dict), default=- np.inf))
-            ymax = max(
-                max((max(self.guides_dict[key][:, 1], default=-np.inf)
-                     for key in self.guides_dict)),
-                max((max(self.marker_dict[key][:, 1], default=- np.inf)
-                     for key in self.marker_dict), default=- np.inf))
-            xmin = min(
-                min((min(self.guides_dict[key][:, 0], default=np.inf)
-                     for key in self.guides_dict)),
-                min((min(self.marker_dict[key][:, 0], default=np.inf)
-                     for key in self.marker_dict), default=np.inf))
-            ymin = min(
-                min((min(self.guides_dict[key][:, 1], default=np.inf)
-                     for key in self.guides_dict)),
-                min((min(self.marker_dict[key][:, 1], default=np.inf)
-                     for key in self.marker_dict), default=np.inf))
+            seq = []
+            for key in self.guides_dict:
+                for x in self.guides_dict[key]:
+                    seq.append(x)
+
+            for key in self.marker_dict:
+                for x in self.marker_dict[key]:
+                    seq.append(x)
+
+            seq = np.vstack(seq)
+            xmax = max(seq[:, 0])
+            xmin = min(seq[:, 0])
+            ymax = max(seq[:, 1])
+            ymin = min(seq[:, 1])
             return ((xmin, xmax), (ymin, ymax))
 
     @ property
@@ -101,7 +95,7 @@ class Cell:
         """
         if num not in self.guides_dict:
             self.guides_dict[num] = []
-        self.guides_dict[num] = self.merge_segments(guide)
+        self.guides_dict[num].append(self.merge_segments(guide))
 
     def get_element_coordinates(self, elem_dict: dict):
         elem = []
@@ -133,8 +127,9 @@ class Cell:
         scale *= 5 / 127. if is_vector else 1.
 
         fig, ax = plt.subplots()
-        for guide in self.get_element_coordinates(self.guides_dict):
-            ax.plot(guide[:, 0], guide[:, 1], '-b')
+        for circuit in self.get_element_coordinates(self.guides_dict):
+            for guide in circuit:
+                ax.plot(guide[:, 0], guide[:, 1], '-b')
 
         for mark in self.get_element_coordinates(self.marker_dict):
             ax.plot(mark, '-k')
@@ -171,8 +166,9 @@ class Cell:
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots()
-        for guide in self.get_element_coordinates(self.guides_dict):
-            ax.plot(guide[:, 0], guide[:, 1], '-b')
+        for circuit in self.get_element_coordinates(self.guides_dict):
+            for guide in circuit:
+                ax.plot(guide[:, 0], guide[:, 1], '-b')
 
         for mark in self.get_element_coordinates(self.marker_dict):
             ax.plot(mark, '-k')
@@ -199,16 +195,18 @@ class Cell:
 
         ax = fig.add_subplot(121, projection='3d')
 
-        for guide in self.get_element_coordinates(self.guides_dict):
-            ax.plot(guide[:, 0], guide[:, 1], guide[:, 2], '-b')
+        for circuit in self.get_element_coordinates(self.guides_dict):
+            for guide in circuit:
+                ax.plot(guide[:, 0], guide[:, 1], guide[:, 2], '-b')
         ax.set_xlabel('x [mm]')
         ax.set_ylabel('y [mm]')
         ax.set_zlabel('z [mm]')
 
         # xy plane
         ax = fig.add_subplot(322)
-        for guide in self.get_element_coordinates(self.guides_dict):
-            ax.plot(guide[:, 0], guide[:, 1], '-b')
+        for circuit in self.get_element_coordinates(self.guides_dict):
+            for guide in circuit:
+                ax.plot(guide[:, 0], guide[:, 1], '-b')
         for mark in self.get_element_coordinates(self.marker_dict):
             ax.plot(mark, '-k')
         ax.set_xlabel('x [mm]')
@@ -216,15 +214,17 @@ class Cell:
 
         # xz plane
         ax = fig.add_subplot(324)
-        for guide in self.get_element_coordinates(self.guides_dict):
-            ax.plot(guide[:, 0], guide[:, 2], '-b')
+        for circuit in self.get_element_coordinates(self.guides_dict):
+            for guide in circuit:
+                ax.plot(guide[:, 0], guide[:, 2], '-b')
         ax.set_xlabel('x [mm]')
         ax.set_ylabel('z [mm]')
 
         # yz plane
         ax = fig.add_subplot(326)
-        for guide in self.get_element_coordinates(self.guides_dict):
-            ax.plot(guide[:, 1], guide[:, 2], '-b')
+        for circuit in self.get_element_coordinates(self.guides_dict):
+            for guide in circuit:
+                ax.plot(guide[:, 1], guide[:, 2], '-b')
         ax.set_xlabel('y [mm]')
         ax.set_ylabel('z [mm]')
 
@@ -251,7 +251,7 @@ def _example():
     waveguide = Waveguide.make_at_port(start_port_2)
     for i_bend in range(2):
         waveguide.add_s_bend(coupler_height, 60, (-2*i_bend)+1)
-    device_cell.add_guide(waveguide, 2)
+    device_cell.add_guide(waveguide, 1)
     # device_cell.show(padding=0.5)
     device_cell.plot3d()
     # device_cell.save_image(filename='simple_coupler.png', padding_frame=0.5)
