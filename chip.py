@@ -6,6 +6,11 @@ from typing import List, Optional
 
 from port import Port
 
+# TODO:
+# - add 3d plot with matplotlib
+# - 2d plot export with jpg and png
+# - add markers
+
 
 class Cell:
     def __init__(self, name: str):
@@ -31,34 +36,32 @@ class Cell:
         Calculates and returns the envelope for the given layers.
         Returns `None` if it is empty.
         """
-        def get_min_max(elem_dict: dict, index: int):
-            min_value, max_value = None, None
-            if bool(elem_dict):
-                for key, elem in elem_dict.items():
-                    tmp_max = np.max(elem[:, index])
-                    tmp_min = np.min(elem[:, index])
-                    if max_value is None or max_value < tmp_max:
-                        max_value = tmp_max
-                    if min_value is None or min_value < tmp_min:
-                        min_value = tmp_min
-            return min_value, max_value
-
-        bounds = []
-        if self._bounds is not None:
-            return bounds
+        if not bool(self.guides_dict) and not bool(self.marker_dict):
+            return None
         else:
-            xmin, xmax = get_min_max(self.guides_dict, 0)
-            ymin, ymax = get_min_max(self.guides_dict, 1)
-            mark_xmin, mark_xmax = get_min_max(self.marker_dict, 0)
-            mark_ymin, mark_ymax = get_min_max(self.marker_dict, 1)
+            xmax = max(
+                max((max(self.guides_dict[key][:, 0], default=-np.inf)
+                     for key in self.guides_dict)),
+                max((max(self.marker_dict[key][:, 0], default=- np.inf)
+                     for key in self.marker_dict), default=- np.inf))
+            ymax = max(
+                max((max(self.guides_dict[key][:, 1], default=-np.inf)
+                     for key in self.guides_dict)),
+                max((max(self.marker_dict[key][:, 1], default=- np.inf)
+                     for key in self.marker_dict), default=- np.inf))
+            xmin = min(
+                min((min(self.guides_dict[key][:, 0], default=np.inf)
+                     for key in self.guides_dict)),
+                min((min(self.marker_dict[key][:, 0], default=np.inf)
+                     for key in self.marker_dict), default=np.inf))
+            ymin = min(
+                min((min(self.guides_dict[key][:, 1], default=np.inf)
+                     for key in self.guides_dict)),
+                min((min(self.marker_dict[key][:, 1], default=np.inf)
+                     for key in self.marker_dict), default=np.inf))
+            return ((xmin, xmax), (ymin, ymax))
 
-            xmax = np.max(xmax, mark_xmax)
-            ymax = np.max(ymax, mark_ymax)
-            xmin = np.min(xmin, mark_xmin)
-            ymin = np.min(ymin, mark_ymin)
-        return ((xmin, xmax), (ymin, ymax))
-
-    @property
+    @ property
     def size(self):
         """
         Returns the size of the cell
@@ -106,7 +109,8 @@ class Cell:
             elem.append(array)
         return elem
 
-    def save_image(self, filename: str, resolution=1., ylim=(None, None), xlim=(None, None), scale=1.):
+    def save_image(self, filename: str, resolution=1., ylim=(None, None),
+                   xlim=(None, None), scale=1., tight_flag=False):
         """
            Save cell object as an image.
 
@@ -116,7 +120,8 @@ class Cell:
            :param resolution: Rasterization resolution in GDSII units.
            :param ylim: Tuple of (min_x, max_x) to export.
            :param xlim: Tuple of (min_y, max_y) to export.
-           :param scale: Defines the scale of the image
+           :param scale: Defines the scale of the image.
+           :param tight_flag: Boolean flag for tight axes option of the plot.
            """
         import matplotlib.pyplot as plt
 
@@ -135,7 +140,7 @@ class Cell:
         # plot frame
 
         # Autoscale, then change the axis limits and read back what is actually displayed
-        ax.autoscale(True, tight=True)
+        ax.autoscale(True, tight=tight_flag)
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
         actual_ylim, actual_xlim = ax.get_ylim(), ax.get_xlim()
@@ -169,7 +174,6 @@ class Cell:
         bounds = self.get_bounds()
         ax.set_xlim(bounds[0][0] - padding, bounds[0][1] + padding)
         ax.set_ylim(bounds[1][0] - padding, bounds[1][1] + padding)
-        ax.set_aspect(1)
         plt.show()
 
 
@@ -185,12 +189,3 @@ if __name__ == '__main__':
     device_cell.add_guide(waveguide, 1)
     print(device_cell.size)
     device_cell.show()
-    # device_cell.save_image('chip.pdf')
-    # # Creates the output file by using gdspy or fatamorgana. To use the implemented parallel processing, set
-    # # parallel=True.
-    # device_cell.save(name='my_design', parallel=True)
-
-    # array_cell = Cell('Array')
-    # array_cell.add_cell(device_cell, rows=2, columns=2, spacing=(1000, 1000))
-
-    # array_cell.save()
